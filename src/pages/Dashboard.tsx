@@ -31,13 +31,14 @@ export default function Dashboard() {
   const open     = leads.filter(l => l.status !== "closed" && l.status !== "inactive").length;
 
   const funnel = [
-    { label: "New",        value: leads.filter(l => l.status === "new").length,        color: "bg-blue-400",    status: "new"        },
-    { label: "Contacted",  value: leads.filter(l => l.status === "contacted").length,  color: "bg-indigo-400",  status: "contacted"  },
-    { label: "Meeting",    value: leads.filter(l => l.status === "meeting").length,    color: "bg-violet-400",  status: "meeting"    },
-    { label: "Site Visit", value: leads.filter(l => l.status === "site_visit").length, color: "bg-amber-400",   status: "site_visit" },
-    { label: "Booked",     value: leads.filter(l => l.status === "booked").length,     color: "bg-teal-400",    status: "booked"     },
-    { label: "Closed",     value: closed,                                               color: "bg-emerald-500", status: "closed"     },
-    { label: "Inactive",   value: leads.filter(l => l.status === "inactive").length,   color: "bg-gray-300",    status: "inactive"   },
+    { label: "New",                   value: leads.filter(l => l.status === "new").length,                   color: "bg-blue-400",    status: "new"                   },
+    { label: "Contacted",             value: leads.filter(l => l.status === "contacted").length,             color: "bg-indigo-400",  status: "contacted"             },
+    { label: "Meeting",               value: leads.filter(l => l.status === "meeting").length,               color: "bg-violet-400",  status: "meeting"               },
+    { label: "Site Visit Scheduled",  value: leads.filter(l => l.status === "site_visit").length,            color: "bg-amber-400",   status: "site_visit"            },
+    { label: "Site Visit Postponed",  value: leads.filter(l => l.status === "site_visit_postponed").length,  color: "bg-orange-400",  status: "site_visit_postponed"  },
+    { label: "Booked",                value: leads.filter(l => l.status === "booked").length,                color: "bg-teal-400",    status: "booked"                },
+    { label: "Closed",                value: closed,                                                          color: "bg-emerald-500", status: "closed"                },
+    { label: "Inactive",              value: leads.filter(l => l.status === "inactive").length,              color: "bg-gray-300",    status: "inactive"              },
   ];
 
   return (
