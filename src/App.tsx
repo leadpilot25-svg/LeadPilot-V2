@@ -10,6 +10,7 @@ import Funnel          from "./pages/Funnel";
 import Admin           from "./pages/Admin";
 import Settings        from "./pages/Settings";
 import AddLeadModal    from "./components/AddLeadModal";
+import PublicForm      from "./pages/PublicForm";
 import { useState }    from "react";
 
 function Guard({ children }: { children: React.ReactNode }) {
@@ -54,7 +55,6 @@ function AppShell() {
             + Add Lead
           </button>
         </header>
-
         <main className="pb-24 lg:pb-8">
           <Routes>
             <Route path="/"          element={<Dashboard />} />
@@ -66,7 +66,6 @@ function AppShell() {
             <Route path="*"          element={<Navigate to="/" />} />
           </Routes>
         </main>
-
         <BottomNav />
       </div>
       <AddLeadModal isOpen={modal} onClose={() => setModal(false)} />
@@ -79,8 +78,9 @@ export default function App() {
     <FirebaseProvider>
       <Router>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/*" element={<Guard><AppShell /></Guard>} />
+          <Route path="/login"          element={<Login />} />
+          <Route path="/form/:clientId" element={<PublicForm />} />  {/* ✅ public — no auth */}
+          <Route path="/*"              element={<Guard><AppShell /></Guard>} />
         </Routes>
       </Router>
     </FirebaseProvider>
