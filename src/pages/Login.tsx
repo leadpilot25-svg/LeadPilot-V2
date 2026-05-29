@@ -82,9 +82,13 @@ export default function Login() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-sm border border-gray-100 text-center">
 
-        <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-5">
-          <span className="text-white font-bold text-2xl">L</span>
-        </div>
+        <div className="flex justify-center mb-5">
+  <img
+    src="/icon-192.png"
+    alt="LeadPilot"
+    className="w-16 h-16 rounded-2xl"
+  />
+</div>
 
         <h1 className="text-xl font-bold text-gray-900 mb-1">LeadPilot</h1>
         <p className="text-sm text-gray-400 mb-8">Real estate lead management</p>

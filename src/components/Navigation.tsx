@@ -53,13 +53,15 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-gray-100 z-40">
       <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">L</span>
-          </div>
-          <span className="font-bold text-gray-900">LeadPilot</span>
-        </div>
-      </div>
+  <div className="flex items-center gap-2">
+    <img
+      src="/icon-192.png"
+      alt="LeadPilot"
+      className="w-8 h-8 rounded-lg"
+    />
+    <span className="font-bold text-gray-900">LeadPilot</span>
+  </div>
+</div>
 
       <nav className="flex-1 p-4 space-y-1">
         {items.map(item => {
@@ -75,19 +77,20 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-gray-100">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-semibold text-gray-500">
-            {(user?.displayName || user?.email || "?")[0].toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-gray-700 truncate">{user?.displayName || user?.email?.split("@")[0]}</p>
-            <p className="text-[10px] text-gray-400 capitalize">{role}</p>
-          </div>
-        </div>
-        <button onClick={() => auth.signOut()} className="w-full text-xs text-gray-400 hover:text-red-500 py-2 rounded-lg hover:bg-red-50 transition-colors font-medium">
-          Sign out
-        </button>
-      </div>
+  <div className="min-w-0 flex-1 mb-3">
+    <p className="text-xs font-semibold text-gray-700 truncate">
+      {user?.displayName || user?.email?.split("@")[0]}
+    </p>
+    <p className="text-[10px] text-gray-400 capitalize">{role}</p>
+  </div>
+
+  <button
+    onClick={() => auth.signOut()}
+    className="w-full text-xs text-gray-400 hover:text-red-500 py-2 rounded-lg hover:bg-red-50 transition-colors font-medium"
+  >
+    Sign out
+  </button>
+</div>
     </aside>
   );
 }
