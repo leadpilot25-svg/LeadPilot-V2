@@ -69,15 +69,18 @@ export default function Admin() {
   };
 
   const deleteAgent = async (agent: any) => {
-    if (!confirm(`Remove agent "${agent.name}"?`)) return;
+  if (!confirm(`Remove agent "${agent.name}"?`)) return;
+  try {
     if (agent.isPending) {
-      // Pending agents live in /clients
       await deleteDoc(doc(db, "clients", agent.id));
     } else {
-      // Active agents live in /users
       await deleteDoc(doc(db, "users", agent.id));
     }
-  };
+  } catch (err) {
+    console.error(err);
+    alert("Failed to delete. Check Firestore rules.");
+  }
+};
 
   // Match leads by real UID OR email (covers pre-login assignment)
   const metrics = (agent: any) => {
