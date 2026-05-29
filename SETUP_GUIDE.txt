@@ -1,0 +1,393 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║           LeadPilot V2 — Complete Setup Guide               ║
+║         Written for non-technical people                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+This guide takes you from zero to a live working app.
+Follow every step in order. Do not skip any step.
+Total time: about 1 hour.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — INSTALL FREE TOOLS ON YOUR COMPUTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1 — Install Node.js
+--------------------------
+1. Open your browser
+2. Go to: nodejs.org
+3. Click the big green button that says "LTS"
+4. Download and install it (keep clicking Next until done)
+5. Done ✓
+
+
+STEP 2 — Install VS Code
+--------------------------
+1. Go to: code.visualstudio.com
+2. Click Download
+3. Install it like any normal app
+4. Done ✓
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — CREATE YOUR FIREBASE PROJECT (FREE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 3 — Create Firebase project
+-----------------------------------
+1. Go to: console.firebase.google.com
+2. Sign in with your Google account
+3. Click "Add project" or "Create a project"
+4. Name it: leadpilot
+5. Turn OFF Google Analytics (not needed)
+6. Click "Create project"
+7. Wait 30 seconds → click "Continue"
+
+
+STEP 4 — Enable Google login
+------------------------------
+1. In Firebase, click "Authentication" in the left menu
+2. Click "Get started"
+3. Click "Google"
+4. Toggle it ON (the switch turns blue)
+5. Enter your email in the "Support email" field
+6. Click "Save"
+
+
+STEP 5 — Create the database
+------------------------------
+1. Click "Firestore Database" in the left menu
+2. Click "Create database"
+3. Choose "Start in production mode"
+4. Click "Next"
+5. Choose a location near you:
+   - India → asia-south1
+   - UK/Europe → europe-west2
+   - USA → us-central1
+6. Click "Enable"
+7. Wait 30 seconds
+
+
+STEP 6 — Get your secret config keys
+--------------------------------------
+1. Click the gear icon ⚙️ at top left → "Project settings"
+2. Scroll down to "Your apps"
+3. Click the </> icon (web icon)
+4. Type "leadpilot-web" as the app nickname
+5. Click "Register app"
+6. You will see a block of code like this:
+
+   const firebaseConfig = {
+     apiKey: "AIzaSyXXXX...",
+     authDomain: "leadpilot.firebaseapp.com",
+     projectId: "leadpilot",
+     ...
+   };
+
+7. COPY this entire block and paste it in a Notepad file
+   → You will need it in Step 10
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — SET UP YOUR PROJECT FILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 7 — Create your project folder
+--------------------------------------
+1. On your computer, create a new folder on your Desktop
+2. Name it: LeadPilotV2
+3. Open VS Code
+4. Click "File" → "Open Folder"
+5. Select the LeadPilotV2 folder you just created
+
+
+STEP 8 — Copy all downloaded files
+-------------------------------------
+Take all the files from this download and copy them into
+your LeadPilotV2 folder, keeping this exact structure:
+
+LeadPilotV2/
+├── index.html                ← copy here
+├── package.json              ← copy here
+├── tailwind.config.js        ← copy here
+├── postcss.config.js         ← copy here
+├── vite.config.ts            ← copy here
+├── tsconfig.json             ← copy here
+├── tsconfig.node.json        ← copy here
+├── firestore.rules           ← copy here
+└── src/
+    ├── main.tsx              ← copy here
+    ├── index.css             ← copy here
+    ├── App.tsx               ← copy here
+    ├── lib/
+    │   └── firebase.ts       ← copy here
+    ├── contexts/
+    │   └── FirebaseProvider.tsx  ← copy here
+    ├── pages/
+    │   ├── Login.tsx         ← copy here
+    │   ├── Dashboard.tsx     ← copy here
+    │   ├── LeadsList.tsx     ← copy here
+    │   ├── LeadDetails.tsx   ← copy here
+    │   ├── Funnel.tsx        ← copy here
+    │   ├── Admin.tsx         ← copy here
+    │   ├── Settings.tsx      ← copy here
+    │   └── SuperAdminPanel.tsx ← copy here
+    └── components/
+        ├── Navigation.tsx    ← copy here
+        ├── Modal.tsx         ← copy here
+        └── AddLeadModal.tsx  ← copy here
+
+IMPORTANT: Create the folders src/lib, src/contexts,
+src/pages, src/components if they don't exist.
+
+
+STEP 9 — Change YOUR email in 2 files
+----------------------------------------
+
+FILE 1: src/lib/firebase.ts
+→ Open this file in VS Code
+→ Replace the entire firebaseConfig with YOUR config
+  that you copied in Step 6
+
+FILE 2: src/contexts/FirebaseProvider.tsx
+→ Open this file in VS Code
+→ Find this line near the top:
+  const SUPER_ADMIN_EMAIL = "your@gmail.com";
+→ Change your@gmail.com to YOUR actual Gmail address
+
+FILE 3: firestore.rules
+→ Open this file in VS Code
+→ Find this line:
+  request.auth.token.email == "your@gmail.com"
+→ Change your@gmail.com to YOUR same Gmail address
+
+SAVE all files after editing (Ctrl+S on Windows, Cmd+S on Mac)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — INSTALL AND RUN THE APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 10 — Open Terminal in VS Code
+-------------------------------------
+1. In VS Code, click "Terminal" at the top menu
+2. Click "New Terminal"
+3. A black panel opens at the bottom
+4. Make sure it shows your LeadPilotV2 folder path
+
+
+STEP 11 — Install dependencies
+---------------------------------
+Type this command and press Enter:
+
+   npm install
+
+Wait 2-3 minutes. You will see lots of text scrolling.
+When it stops and shows a $ sign, it is done.
+
+
+STEP 12 — Run the app locally
+--------------------------------
+Type this command and press Enter:
+
+   npm run dev
+
+You will see something like:
+   Local: http://localhost:5173
+
+Open your browser and go to: http://localhost:5173
+You should see the LeadPilot login page! ✓
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5 — PUBLISH FIRESTORE RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 13 — Paste security rules
+---------------------------------
+1. Go to console.firebase.google.com
+2. Click your leadpilot project
+3. Click "Firestore Database" → click "Rules" tab
+4. Select ALL the text in the editor (Ctrl+A)
+5. DELETE it
+6. Open your firestore.rules file in VS Code
+7. Select all → Copy
+8. Paste into the Firebase rules editor
+9. Click "Publish"
+10. Wait 15 seconds
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 6 — TEST THE APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 14 — Test as Super Admin
+--------------------------------
+1. Go to http://localhost:5173
+2. Click "Continue with Google"
+3. Sign in with YOUR Gmail (the one you set in Step 9)
+4. You should see: LeadPilot HQ screen ✓
+5. Click "Add New Client" → add a test company
+   → Enter a second Gmail you own as the owner email
+   → Choose Multi plan
+   → Click Create
+
+
+STEP 15 — Test as Client
+--------------------------
+1. Open an Incognito/Private window (Ctrl+Shift+N)
+2. Go to http://localhost:5173
+3. Sign in with the second Gmail from Step 14
+4. You should see: Full dashboard with leads ✓
+5. Go to Admin Center → add an agent email
+
+
+STEP 16 — Test as Agent
+-------------------------
+1. Open another Incognito window
+2. Sign in with the agent email you added
+3. You should see: Only leads assigned to that agent ✓
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 7 — PUBLISH LIVE ON THE INTERNET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 17 — Create GitHub account
+----------------------------------
+1. Go to: github.com
+2. Click "Sign up" → create free account
+
+
+STEP 18 — Upload to GitHub
+----------------------------
+1. In VS Code Terminal, type these commands one by one.
+   Press Enter after each one:
+
+   git init
+   git add .
+   git commit -m "LeadPilot V2"
+
+2. Go to github.com
+3. Click the + icon → "New repository"
+4. Name: leadpilot-v2
+5. Click "Create repository"
+6. Copy the command shown that starts with "git remote add..."
+7. Paste it in VS Code Terminal → press Enter
+8. Then type:  git push -u origin main
+9. Press Enter
+
+
+STEP 19 — Deploy on Vercel (free)
+------------------------------------
+1. Go to: vercel.com
+2. Click "Sign up" → sign up with GitHub
+3. Click "Add New Project"
+4. Find your leadpilot-v2 repository → click "Import"
+5. Click "Deploy"
+6. Wait 2 minutes
+7. Vercel gives you a URL like: leadpilot-v2.vercel.app
+8. That is your LIVE app! ✓
+
+
+STEP 20 — Add your URL to Firebase
+-------------------------------------
+1. Firebase Console → Authentication → Settings
+2. Click "Authorized domains"
+3. Click "Add domain"
+4. Paste your Vercel URL (e.g. leadpilot-v2.vercel.app)
+5. Click Add
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 8 — HOW TO USE THE APP DAILY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TO ADD A NEW CLIENT (you do this):
+  1. Open your app URL
+  2. Log in with YOUR Gmail
+  3. Click "Add New Client"
+  4. Enter company name + their Gmail + plan
+  5. Click Create
+  6. WhatsApp them: "Log in at [your URL] with Google"
+
+WHAT THE CLIENT DOES:
+  1. Opens your URL → logs in with Google
+  2. Sees full dashboard
+  3. Goes to Team & Admin → adds agent emails
+  4. Assigns leads to agents from Leads page
+
+WHAT THE AGENT DOES:
+  1. Opens your URL → logs in with Google
+  2. Sees only their assigned leads
+  3. Can update status, add notes, record voice notes
+
+TO IMPORT LEADS FROM CSV:
+  1. Log in as client
+  2. Go to Leads page
+  3. Click the spreadsheet icon (top right)
+  4. Choose your CSV file
+  5. Select which agent to assign all leads to
+  6. Click Import
+
+CSV FILE FORMAT:
+  Your CSV must have these column names:
+  firstName, phone, email, project, budget
+  (or: name, phoneNumber, propertyType)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMMON PROBLEMS AND FIXES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEM: "npm install" gives errors
+FIX: Make sure Node.js is installed. Close VS Code,
+     reopen it, and try again.
+
+PROBLEM: Login shows "Access denied"
+FIX: Your email is not registered. Log in with your
+     super admin Gmail first. Then add other emails.
+
+PROBLEM: Agent cannot see leads
+FIX: Make sure client assigned leads to the agent AFTER
+     the agent logged in at least once. The agent's real
+     UID is only created on first login.
+
+PROBLEM: Admin Center tab not showing for client
+FIX: Client logs out and back in. The plan setting
+     refreshes on every login.
+
+PROBLEM: "Failed to register agent" error
+FIX: Check that Firestore rules are published correctly.
+     Go to Firebase → Firestore → Rules → check it matches
+     the firestore.rules file exactly.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT EACH ROLE SEES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+YOU (super admin):
+  → HQ panel only
+  → Add/manage client workspaces
+  → Set trial periods and activate clients
+
+CLIENT (workspace owner):
+  → Full dashboard with all leads
+  → Team & Admin page to manage agents
+  → CSV import
+  → Bulk assign leads to agents
+  → Pipeline funnel view
+
+AGENT:
+  → Dashboard showing only their leads
+  → Leads list (assigned to them only)
+  → Update lead status and notes
+  → NO admin features
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If you get stuck on any step, take a screenshot of the
+error and ask Claude. Include what step you were on.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
