@@ -45,9 +45,7 @@ function AppShell() {
         {/* Header */}
         <header className="sticky top-0 bg-white border-b border-gray-100 z-30 px-4 py-3.5 flex items-center justify-between lg:px-8">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-emerald-500 rounded-lg flex items-center justify-center lg:hidden">
-              <span className="text-white font-bold text-xs">L</span>
-            </div>
+            <img src="/icon-192.png" alt="LeadPilot" className="w-7 h-7 rounded-lg lg:hidden object-cover" />
             <span className="font-bold text-gray-900 text-sm">LeadPilot</span>
           </div>
           <button onClick={() => setModal(true)}
