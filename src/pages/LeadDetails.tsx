@@ -45,7 +45,6 @@ export default function LeadDetails() {
   const [note, setNote]       = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  // Update After Call state
   const [callNote,       setCallNote]       = useState("");
   const [callStatus,     setCallStatus]     = useState("contacted");
   const [callInterest,   setCallInterest]   = useState("");
@@ -110,39 +109,35 @@ export default function LeadDetails() {
 
       const updates: any = {
         status:            callStatus,
-        propertyType:      callInterest || lead.propertyType,
-        location:          callLocation || lead.location,
+        propertyType:      callInterest || lead.propertyType || "",  // ✅ fixed
+        location:          callLocation || lead.location || "",       // ✅ fixed
         followUpDate:      callDate,
         followUpTime:      to24(callTime),
         followUpCompleted: false,
       };
-      if (callBudget.trim())  updates.budget = callBudget.trim();
+      if (callBudget.trim()) updates.budget = callBudget.trim();
       if (callNote.trim()) {
         const ts = new Date().toLocaleDateString("en-IN");
         updates.notes = (lead?.notes ? lead.notes + "\n\n" : "") + `[${ts}] ${callNote.trim()}`;
       }
 
-  
       await update(updates);
 
-      // ✅ Sync updated lead data to Google Sheets
       await syncToSheets({
-        id:          id,
-        firstName:   lead.firstName,
-        lastName:    lead.lastName || "",
-        phone:       lead.phone,
-        email:       lead.email || "",
-        project:     callInterest || lead.propertyType || "",
-        budget:      callBudget.trim() || lead.budget || "",
-        location:    callLocation || lead.location || "",
-        source:      lead.source || "Manual",
-        status:      callStatus,
-        notes:       updates.notes || lead.notes || "",
-        clientId:    clientId || lead.clientId || "",
+        id:           id,
+        firstName:    lead.firstName,
+        lastName:     lead.lastName || "",
+        phone:        lead.phone,
+        email:        lead.email || "",
+        project:      callInterest || lead.propertyType || "",
+        budget:       callBudget.trim() || lead.budget || "",
+        location:     callLocation || lead.location || "",
+        source:       lead.source || "Manual",
+        status:       callStatus,
+        notes:        updates.notes || lead.notes || "",
+        clientId:     clientId || lead.clientId || "",
         followUpDate: callDate,
       });
-
-     
 
       await addDoc(collection(db, "activities"), {
         leadId:    id,
@@ -305,21 +300,16 @@ export default function LeadDetails() {
         </button>
       )}
 
-      {/* ── Update After Call Modal ─────────────────────────────────────── */}
+      {/* Update After Call Modal */}
       <Modal isOpen={callModal} onClose={() => setCallModal(false)} title="Update After Call">
         <div className="space-y-4 pb-8">
-
-          {/* Call Notes */}
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Call Notes</label>
-            <textarea
-              value={callNote} onChange={e => setCallNote(e.target.value)}
+            <textarea value={callNote} onChange={e => setCallNote(e.target.value)}
               placeholder="What did the client say?"
-              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-emerald-400 resize-none min-h-[90px]"
-            />
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-emerald-400 resize-none min-h-[90px]" />
           </div>
 
-          {/* Status + Property Interest */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Update Status</label>
@@ -333,35 +323,26 @@ export default function LeadDetails() {
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Property Interest</label>
-              <input
-                type="text" value={callInterest} onChange={e => setCallInterest(e.target.value)}
+              <input type="text" value={callInterest} onChange={e => setCallInterest(e.target.value)}
                 placeholder="2BHK, Villa, etc"
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-3 py-3 text-sm text-gray-700 outline-none focus:border-emerald-400"
-              />
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-3 py-3 text-sm text-gray-700 outline-none focus:border-emerald-400" />
             </div>
           </div>
 
-          {/* Location */}
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Update Location</label>
-            <input
-              type="text" value={callLocation} onChange={e => setCallLocation(e.target.value)}
+            <input type="text" value={callLocation} onChange={e => setCallLocation(e.target.value)}
               placeholder="City / Area"
-              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-emerald-400"
-            />
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-emerald-400" />
           </div>
 
-          {/* Budget (optional) */}
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Budget <span className="normal-case text-gray-300 font-normal">(optional)</span></label>
-            <input
-              type="text" value={callBudget} onChange={e => setCallBudget(e.target.value)}
+            <input type="text" value={callBudget} onChange={e => setCallBudget(e.target.value)}
               placeholder="e.g. 1.2 Cr"
-              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-emerald-400"
-            />
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-emerald-400" />
           </div>
 
-          {/* Next Action */}
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Schedule Next Action</label>
             <div className="relative">
@@ -373,7 +354,6 @@ export default function LeadDetails() {
             </div>
           </div>
 
-          {/* Date + Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Date</label>
@@ -392,12 +372,10 @@ export default function LeadDetails() {
             </div>
           </div>
 
-          {/* Confirm */}
           <button onClick={confirmCallUpdate} disabled={savingCall}
             className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-2xl py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors">
             {savingCall ? "Saving..." : "✅ Confirm Action"}
           </button>
-
         </div>
       </Modal>
     </div>
