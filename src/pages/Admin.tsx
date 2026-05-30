@@ -2,12 +2,12 @@ import { useFirebase } from "../contexts/FirebaseProvider";
 import { db } from "../lib/firebase";
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc } from "firebase/firestore";
-import { UserPlus, Trash2, Mail, Shield, Clock } from "lucide-react";
+import { UserPlus, Trash2, Mail, Shield, Clock, TrendingUp } from "lucide-react";
 
 export default function Admin() {
   const { user, role, clientId } = useFirebase();
-  const [agents, setAgents]   = useState<any[]>([]);   // /users  (logged in)
-  const [pending, setPending] = useState<any[]>([]);   // /clients (never logged in)
+  const [agents, setAgents]   = useState<any[]>([]);
+  const [pending, setPending] = useState<any[]>([]);
   const [leads, setLeads]     = useState<any[]>([]);
   const [name, setName]       = useState("");
   const [email, setEmail]     = useState("");
@@ -15,28 +15,21 @@ export default function Admin() {
 
   useEffect(() => {
     if (!user || !clientId) return;
-
-    // Active agents — logged in at least once, real UID exists
     const u1 = onSnapshot(
       query(collection(db, "users"), where("clientId","==",clientId), where("role","==","agent")),
       snap => setAgents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
-
-    // Pending agents — pre-registered in /clients, never logged in yet
     const u2 = onSnapshot(
       query(collection(db, "clients"), where("clientId","==",clientId), where("role","==","agent")),
       snap => setPending(snap.docs.map(d => ({ id: d.id, ...d.data(), isPending: true })))
     );
-
     const u3 = onSnapshot(
       query(collection(db, "leads"), where("clientId","==",clientId)),
       snap => setLeads(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
-
     return () => { u1(); u2(); u3(); };
   }, [user, clientId]);
 
-  // Merge: active agents take precedence; hide /clients entry once agent has logged in
   const activeEmails = new Set(agents.map(a => (a.email || "").toLowerCase()));
   const pendingOnly  = pending.filter(p => !activeEmails.has((p.email || "").toLowerCase()));
   const allAgents    = [...agents, ...pendingOnly];
@@ -47,19 +40,11 @@ export default function Admin() {
     setAdding(true);
     try {
       const emailLower = email.trim().toLowerCase();
-
-      // ✅ Write ONLY to /clients for pre-registration.
-      // DO NOT create /users placeholder — it causes a UID mismatch that
-      // breaks lead assignment and the migration in FirebaseProvider.
-      // FirebaseProvider creates /users/{realUID} automatically on first login.
       await addDoc(collection(db, "clients"), {
-        email:     emailLower,
-        name:      name.trim(),
-        role:      "agent",
-        clientId,
+        email: emailLower, name: name.trim(),
+        role: "agent", clientId,
         createdAt: new Date().toISOString(),
       });
-
       alert(`✅ ${name} added!\n\nTell them to:\n1. Open the app\n2. Sign in with Google using ${emailLower}\n\nThey will see their leads immediately.`);
       setName(""); setEmail("");
     } catch (err) {
@@ -69,20 +54,19 @@ export default function Admin() {
   };
 
   const deleteAgent = async (agent: any) => {
-  if (!confirm(`Remove agent "${agent.name}"?`)) return;
-  try {
-    if (agent.isPending) {
-      await deleteDoc(doc(db, "clients", agent.id));
-    } else {
-      await deleteDoc(doc(db, "users", agent.id));
+    if (!confirm(`Remove agent "${agent.name}"?`)) return;
+    try {
+      if (agent.isPending) {
+        await deleteDoc(doc(db, "clients", agent.id));
+      } else {
+        await deleteDoc(doc(db, "users", agent.id));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete. Check Firestore rules.");
     }
-  } catch (err) {
-    console.error(err);
-    alert("Failed to delete. Check Firestore rules.");
-  }
-};
+  };
 
-  // Match leads by real UID OR email (covers pre-login assignment)
   const metrics = (agent: any) => {
     const uid        = agent.uid || agent.id;
     const agentEmail = (agent.email || "").toLowerCase();
@@ -90,12 +74,43 @@ export default function Admin() {
       l.assignedTo === uid ||
       (l.assignedTo || "").toLowerCase() === agentEmail
     );
+    const today = new Date().toISOString().split("T")[0];
+    const missed = al.filter(l =>
+      l.followUpDate < today &&
+      !["closed","inactive"].includes(l.status) &&
+      !l.followUpCompleted
+    ).length;
+    const closed = al.filter(l => l.status === "closed").length;
+    const total  = al.length;
+    const rate   = total > 0 ? Math.round((closed / total) * 100) : 0;
     return {
-      total:  al.length,
-      active: al.filter(l => !["closed","inactive"].includes(l.status)).length,
-      closed: al.filter(l => l.status === "closed").length,
+      total,
+      active:  al.filter(l => !["closed","inactive"].includes(l.status)).length,
+      closed,
+      missed,
+      rate,
     };
   };
+
+  // ── Performance data for bar chart ───────────────────────────────────
+  const perfData = agents
+    .filter(a => !a.isPending)
+    .map(a => {
+      const m = metrics(a);
+      return { name: (a.name || "?").split(" ")[0], ...m };
+    });
+  const maxClosed = Math.max(...perfData.map(p => p.closed), 1);
+
+  // ── Team summary totals ───────────────────────────────────────────────
+  const totalLeads  = leads.length;
+  const totalClosed = leads.filter(l => l.status === "closed").length;
+  const totalActive = leads.filter(l => !["closed","inactive"].includes(l.status)).length;
+  const today       = new Date().toISOString().split("T")[0];
+  const totalMissed = leads.filter(l =>
+    l.followUpDate < today &&
+    !["closed","inactive"].includes(l.status) &&
+    !l.followUpCompleted
+  ).length;
 
   return (
     <div className="p-4 pb-24 max-w-xl mx-auto">
@@ -150,7 +165,7 @@ export default function Admin() {
 
       {/* Agent list */}
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Agents ({allAgents.length})</h3>
-      <div className="space-y-3">
+      <div className="space-y-3 mb-8">
         {allAgents.map(a => {
           const uid = a.uid || a.id;
           const m   = metrics(a);
@@ -198,6 +213,121 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {/* ── Performance Dashboard ──────────────────────────────────────── */}
+      {agents.filter(a => !a.isPending).length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <TrendingUp size={15} className="text-emerald-500" /> Performance Dashboard
+          </h3>
+
+          {/* Team summary cards */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {[
+              { label: "Total Leads",    value: totalLeads,  color: "text-gray-900",    bg: "bg-gray-50"      },
+              { label: "Active",         value: totalActive, color: "text-blue-600",    bg: "bg-blue-50"      },
+              { label: "Closed Deals",   value: totalClosed, color: "text-emerald-600", bg: "bg-emerald-50"   },
+              { label: "Missed Follow-ups", value: totalMissed, color: "text-red-500",  bg: "bg-red-50"       },
+            ].map(s => (
+              <div key={s.label} className={`${s.bg} rounded-2xl p-4`}>
+                <p className="text-xs text-gray-500 font-medium">{s.label}</p>
+                <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Bar chart — deals closed per agent */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              Deals Closed by Agent
+            </p>
+            <div className="flex items-end gap-3 h-32">
+              {perfData.map((p, i) => {
+                const height = maxClosed > 0 ? Math.max((p.closed / maxClosed) * 100, 4) : 4;
+                const color  = p.rate >= 30 ? "bg-emerald-400"
+                             : p.rate >= 15 ? "bg-amber-400"
+                             : "bg-red-300";
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <p className="text-xs font-bold text-gray-700">{p.closed}</p>
+                    <div className="w-full flex items-end" style={{ height: "80px" }}>
+                      <div
+                        className={`w-full rounded-t-lg ${color} transition-all duration-500`}
+                        style={{ height: `${height}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-400 truncate w-full text-center">{p.name}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-3 mt-3 justify-center">
+              {[["bg-emerald-400","≥30% close rate"],["bg-amber-400","15–29%"],["bg-red-300","<15%"]].map(([c,l])=>(
+                <div key={l} className="flex items-center gap-1">
+                  <div className={`w-2.5 h-2.5 rounded-sm ${c}`}/>
+                  <span className="text-[10px] text-gray-400">{l}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Agent performance table */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              Agent Breakdown
+            </p>
+            <div className="space-y-3">
+              {perfData
+                .sort((a, b) => b.closed - a.closed)
+                .map((p, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  {/* Rank */}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    i === 0 ? "bg-amber-100 text-amber-600" :
+                    i === 1 ? "bg-gray-100 text-gray-500" :
+                    "bg-gray-50 text-gray-400"
+                  }`}>
+                    {i + 1}
+                  </div>
+                  {/* Name */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
+                    {/* Progress bar */}
+                    <div className="h-1.5 bg-gray-100 rounded-full mt-1">
+                      <div
+                        className={`h-full rounded-full ${
+                          p.rate >= 30 ? "bg-emerald-400" :
+                          p.rate >= 15 ? "bg-amber-400" : "bg-red-300"
+                        }`}
+                        style={{ width: `${Math.min(p.rate * 2, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  {/* Stats */}
+                  <div className="flex gap-3 text-center shrink-0">
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">{p.total}</p>
+                      <p className="text-[9px] text-gray-400">Total</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-emerald-600">{p.closed}</p>
+                      <p className="text-[9px] text-gray-400">Closed</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-red-400">{p.missed}</p>
+                      <p className="text-[9px] text-gray-400">Missed</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-blue-600">{p.rate}%</p>
+                      <p className="text-[9px] text-gray-400">Rate</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
