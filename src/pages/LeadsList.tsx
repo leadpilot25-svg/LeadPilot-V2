@@ -2,7 +2,7 @@ import { useFirebase } from "../contexts/FirebaseProvider";
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, getDocs, doc, writeBatch, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { Search, UserPlus, Mail, Trash2, ChevronRight, FileSpreadsheet, X, CheckCircle2, AlertTriangle, UserCheck } from "lucide-react";
+
 import { Link, useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
 
@@ -147,9 +147,7 @@ export default function LeadsList() {
             <FileSpreadsheet size={18} />
             <input type="file" accept=".csv" onChange={handleCSV} className="hidden" />
           </label>
-          <Link to="/leads/new" className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl p-2 shadow-sm transition-colors">
-            <UserPlus size={18} />
-          </Link>
+         
         </div>
       </div>
 
