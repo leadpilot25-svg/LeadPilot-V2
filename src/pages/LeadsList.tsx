@@ -2,6 +2,8 @@ import { useFirebase } from "../contexts/FirebaseProvider";
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, getDocs, doc, writeBatch, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { Search, Mail, Trash2, ChevronRight, FileSpreadsheet, X, CheckCircle2, AlertTriangle } from "lucide-react";
+
 
 import { Link, useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
