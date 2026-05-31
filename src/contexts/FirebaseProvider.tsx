@@ -93,14 +93,17 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       let resolvedClientId: string | null = null;
       let resolvedPlan: Plan = "single";
 
-      // ── Step 1: /users/{realUID} ─────────────────────────────────────────
+      // ── Step 1: /users/{realUID} — only trust if clientId is set ───────────
       try {
         const snap = await getDoc(doc(db, "users", realUID));
         if (snap.exists()) {
           const d = snap.data();
-          resolvedRole     = d.role === "admin" ? "client" : d.role;
-          resolvedClientId = d.clientId || null;
-          resolvedPlan     = d.plan || "single";
+          // If clientId is null/missing, fall through to ownerEmail lookup
+          if (d.clientId) {
+            resolvedRole     = d.role === "admin" ? "client" : d.role;
+            resolvedClientId = d.clientId;
+            resolvedPlan     = d.plan || "single";
+          }
         }
       } catch (e) { console.warn("uid lookup:", e); }
 
