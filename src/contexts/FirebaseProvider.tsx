@@ -124,10 +124,45 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
 
-      // Refresh plan from /clients
+      // Refresh plan from /clients + check access
       try {
         const cs = await getDoc(doc(db, "clients", resolvedClientId));
-        if (cs.exists()) resolvedPlan = cs.data().plan || "single";
+
+        if (!cs.exists() && resolvedRole === "client") {
+          // Workspace deleted by superadmin
+          sessionStorage.setItem("auth_error", "account_removed");
+          await auth.signOut();
+          setUser(null); setRole(null); setClientId(null); setPlan(null);
+          setLoading(false);
+          return;
+        }
+
+        if (cs.exists()) {
+          const cd = cs.data();
+          resolvedPlan = cd.plan || "single";
+
+          // Toggled off by superadmin
+          if (cd.active === false) {
+            sessionStorage.setItem("auth_error", "account_disabled");
+            await auth.signOut();
+            setUser(null); setRole(null); setClientId(null); setPlan(null);
+            setLoading(false);
+            return;
+          }
+
+          // Trial expired and not activated
+          if (cd.trialEndsAt && cd.status !== "active") {
+            const trialEnd = new Date(cd.trialEndsAt);
+            trialEnd.setHours(23, 59, 59);
+            if (new Date() > trialEnd) {
+              sessionStorage.setItem("auth_error", "trial_expired");
+              await auth.signOut();
+              setUser(null); setRole(null); setClientId(null); setPlan(null);
+              setLoading(false);
+              return;
+            }
+          }
+        }
       } catch {}
 
       // ── Write canonical /users/{realUID} doc ─────────────────────────────
