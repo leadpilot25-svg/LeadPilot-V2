@@ -1,10 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import {
-  doc, setDoc, getDoc, collection,
-  query, where, getDocs, writeBatch, deleteDoc,
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  writeBatch,
+  deleteDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
+
 
 export const SUPER_ADMIN_EMAIL = "mail.nasiya@gmail.com";
 
@@ -219,6 +228,40 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     return unsub;
   }, []);
+  // ── Real-time access revocation ──────────────────────────────────────
+  // Fires instantly when superadmin deletes, toggles off, or trial expires
+  useEffect(() => {
+    if (!user || !clientId || role === "super_admin" || role === "agent") return;
+
+    const unsubAccess = onSnapshot(
+      doc(db, "clients", clientId),
+      (snap) => {
+        // Deleted
+        if (!snap.exists()) {
+          auth.signOut();
+          return;
+        }
+        const cd = snap.data();
+
+        // Toggled off
+        if (cd.active === false) {
+          auth.signOut();
+          return;
+        }
+
+        // Trial expired
+        if (cd.trialEndsAt && cd.status !== "active") {
+          const trialEnd = new Date(cd.trialEndsAt + "T23:59:59");
+          if (!isNaN(trialEnd.getTime()) && new Date() > trialEnd) {
+            auth.signOut();
+          }
+        }
+      },
+      () => {} // ignore permission errors silently
+    );
+
+    return () => unsubAccess();
+  }, [user, clientId, role]);
 
   return (
     <FirebaseContext.Provider value={{ user, role, clientId, plan, loading }}>
