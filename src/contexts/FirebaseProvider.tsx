@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import {
   doc,
@@ -10,10 +10,8 @@ import {
   getDocs,
   writeBatch,
   deleteDoc,
-  onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
-
 
 export const SUPER_ADMIN_EMAIL = "mail.nasiya@gmail.com";
 
@@ -41,10 +39,39 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [plan, setPlan]         = useState<Plan>(null);
   const [loading, setLoading]   = useState(true);
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPoll = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
+
+  const startPoll = (cid: string) => {
+    stopPoll();
+    pollRef.current = setInterval(async () => {
+      try {
+        const snap = await getDoc(doc(db, "clients", cid));
+        if (!snap.exists()) {
+          stopPoll();
+          sessionStorage.setItem("auth_error", "account_disabled");
+          await auth.signOut();
+          return;
+        }
+        const cd = snap.data();
+        if (cd.active === false) {
+          stopPoll();
+          sessionStorage.setItem("auth_error", "account_disabled");
+          await auth.signOut();
+        }
+      } catch (e) { console.warn("poll:", e); }
+    }, 15000); // check every 15 seconds
+  };
+
   useEffect(() => {
     if (!auth) { setLoading(false); return; }
 
     const unsub = onAuthStateChanged(auth, async (authUser) => {
+      stopPoll();
+
       if (!authUser) {
         setUser(null); setRole(null); setClientId(null); setPlan(null);
         setLoading(false);
@@ -66,7 +93,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       let resolvedClientId: string | null = null;
       let resolvedPlan: Plan = "single";
 
-      // ── Step 1: Check /users/{realUID} ───────────────────────────────────
+      // ── Step 1: /users/{realUID} ─────────────────────────────────────────
       try {
         const snap = await getDoc(doc(db, "users", realUID));
         if (snap.exists()) {
@@ -77,7 +104,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       } catch (e) { console.warn("uid lookup:", e); }
 
-      // ── Step 2: If not found by UID, search /users by email ──────────────
+      // ── Step 2: /users by email ──────────────────────────────────────────
       const placeholderDocIds: string[] = [];
       if (!resolvedRole) {
         try {
@@ -85,9 +112,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             query(collection(db, "users"), where("email", "==", email))
           );
           if (!snaps.empty) {
-            snaps.docs.forEach(d => {
-              if (d.id !== realUID) placeholderDocIds.push(d.id);
-            });
+            snaps.docs.forEach(d => { if (d.id !== realUID) placeholderDocIds.push(d.id); });
             const d = snaps.docs[0].data();
             resolvedRole     = d.role === "admin" ? "client" : d.role;
             resolvedClientId = d.clientId || null;
@@ -96,7 +121,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (e) { console.warn("email query:", e); }
       }
 
-      // ── Step 3: Check /clients by ownerEmail or email ────────────────────
+      // ── Step 3: /clients by ownerEmail ───────────────────────────────────
       if (!resolvedRole) {
         try {
           const snaps = await getDocs(
@@ -108,23 +133,24 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             resolvedPlan     = snaps.docs[0].data().plan || "single";
           }
         } catch (e) { console.warn("ownerEmail lookup:", e); }
-
-        if (!resolvedRole) {
-          try {
-            const snaps = await getDocs(
-              query(collection(db, "clients"), where("email", "==", email))
-            );
-            if (!snaps.empty) {
-              const d = snaps.docs[0].data();
-              resolvedRole     = d.role || "agent";
-              resolvedClientId = d.clientId || snaps.docs[0].id;
-              resolvedPlan     = d.plan || "single";
-            }
-          } catch (e) { console.warn("client email lookup:", e); }
-        }
       }
 
-      // ── Deny if not registered ───────────────────────────────────────────
+      // ── Step 4: /clients by email ────────────────────────────────────────
+      if (!resolvedRole) {
+        try {
+          const snaps = await getDocs(
+            query(collection(db, "clients"), where("email", "==", email))
+          );
+          if (!snaps.empty) {
+            const d = snaps.docs[0].data();
+            resolvedRole     = d.role || "agent";
+            resolvedClientId = d.clientId || snaps.docs[0].id;
+            resolvedPlan     = d.plan || "single";
+          }
+        } catch (e) { console.warn("client email lookup:", e); }
+      }
+
+      // ── Not registered ───────────────────────────────────────────────────
       if (!resolvedRole || !resolvedClientId) {
         sessionStorage.setItem("auth_error", "unauthorized");
         await auth.signOut();
@@ -133,15 +159,43 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
 
-      // Refresh plan from /clients + check access
+      // ── Check client doc — must exist and must not be disabled ─────────────
       try {
         const cs = await getDoc(doc(db, "clients", resolvedClientId));
 
-        if (cs.exists()) {
-          const cd = cs.data();
-          resolvedPlan = cd.plan || "single";
+        // Doc deleted by superadmin → clear stale /users doc and re-resolve
+        if (!cs.exists()) {
+          // Wipe the stale clientId from /users so next login re-resolves cleanly
+          try {
+            await setDoc(doc(db, "users", realUID), { clientId: null }, { merge: true });
+          } catch {}
 
-          // ✅ Blocked by superadmin toggle
+          // Try to find a NEW client doc for this email (superadmin may have re-added)
+          let reResolvedClientId: string | null = null;
+          try {
+            const snaps = await getDocs(
+              query(collection(db, "clients"), where("ownerEmail", "==", email))
+            );
+            if (!snaps.empty && snaps.docs[0].data().active !== false) {
+              reResolvedClientId = snaps.docs[0].id;
+              resolvedClientId   = reResolvedClientId;
+              resolvedPlan       = snaps.docs[0].data().plan || resolvedPlan;
+            }
+          } catch {}
+
+          // Still no valid client doc → block login
+          if (!reResolvedClientId) {
+            sessionStorage.setItem("auth_error", "account_disabled");
+            await auth.signOut();
+            setUser(null); setRole(null); setClientId(null); setPlan(null);
+            setLoading(false);
+            return;
+          }
+        } else {
+          const cd = cs.data();
+          resolvedPlan = cd.plan || resolvedPlan;
+
+          // Explicitly disabled by superadmin → block login
           if (cd.active === false) {
             sessionStorage.setItem("auth_error", "account_disabled");
             await auth.signOut();
@@ -149,22 +203,13 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setLoading(false);
             return;
           }
-
-          // ✅ Trial expired
-          if (cd.trialEndsAt && cd.status !== "active") {
-            const trialEnd = new Date(cd.trialEndsAt + "T23:59:59");
-            if (!isNaN(trialEnd.getTime()) && new Date() > trialEnd) {
-              sessionStorage.setItem("auth_error", "trial_expired");
-              await auth.signOut();
-              setUser(null); setRole(null); setClientId(null); setPlan(null);
-              setLoading(false);
-              return;
-            }
-          }
         }
-      } catch {}
+      } catch (e) {
+        console.warn("client doc check:", e);
+        // On Firestore error — allow login, never lock out due to network issues
+      }
 
-      // ── Write canonical /users/{realUID} doc ─────────────────────────────
+      // ── Write /users/{realUID} ───────────────────────────────────────────
       try {
         const userRef  = doc(db, "users", realUID);
         const existing = await getDoc(userRef);
@@ -181,7 +226,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }, { merge: true });
       } catch (e) { console.warn("upsert user:", e); }
 
-      // ── Migrate leads assigned to email → realUID ────────────────────────
+      // ── Lead migrations ──────────────────────────────────────────────────
       try {
         const byEmail = await getDocs(
           query(collection(db, "leads"),
@@ -193,13 +238,9 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const batch = writeBatch(db);
           byEmail.docs.forEach(d => batch.update(d.ref, { assignedTo: realUID }));
           await batch.commit();
-          console.log(`Migrated ${byEmail.size} leads from email → UID`);
         }
       } catch (e) { console.warn("email lead migration:", e); }
 
-      // ── Migrate leads stuck on placeholder doc IDs → realUID ─────────────
-      // Placeholder /users docs (from the old addAgent bug) had random auto-IDs.
-      // Leads assigned to those IDs are unreachable by the agent; fix them here.
       for (const oldId of placeholderDocIds) {
         try {
           const byOldId = await getDocs(
@@ -212,9 +253,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const batch = writeBatch(db);
             byOldId.docs.forEach(d => batch.update(d.ref, { assignedTo: realUID }));
             await batch.commit();
-            console.log(`Migrated ${byOldId.size} leads from ${oldId} → UID`);
           }
-          // Best-effort cleanup of placeholder doc
           try { await deleteDoc(doc(db, "users", oldId)); } catch {}
         } catch (e) { console.warn("placeholder migration:", e); }
       }
@@ -224,44 +263,13 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setClientId(resolvedClientId);
       setPlan(resolvedPlan);
       setLoading(false);
+
+      // Start polling ONLY for clients to detect deletion/disable
+      if (resolvedRole === "client") startPoll(resolvedClientId);
     });
 
-    return unsub;
+    return () => { unsub(); stopPoll(); };
   }, []);
-  // ── Real-time access revocation ──────────────────────────────────────
-  // Fires instantly when superadmin deletes, toggles off, or trial expires
-  useEffect(() => {
-    if (!user || !clientId || role === "super_admin" || role === "agent") return;
-
-    const unsubAccess = onSnapshot(
-      doc(db, "clients", clientId),
-      (snap) => {
-        // Deleted
-        if (!snap.exists()) {
-          auth.signOut();
-          return;
-        }
-        const cd = snap.data();
-
-        // Toggled off
-        if (cd.active === false) {
-          auth.signOut();
-          return;
-        }
-
-        // Trial expired
-        if (cd.trialEndsAt && cd.status !== "active") {
-          const trialEnd = new Date(cd.trialEndsAt + "T23:59:59");
-          if (!isNaN(trialEnd.getTime()) && new Date() > trialEnd) {
-            auth.signOut();
-          }
-        }
-      },
-      () => {} // ignore permission errors silently
-    );
-
-    return () => unsubAccess();
-  }, [user, clientId, role]);
 
   return (
     <FirebaseContext.Provider value={{ user, role, clientId, plan, loading }}>
