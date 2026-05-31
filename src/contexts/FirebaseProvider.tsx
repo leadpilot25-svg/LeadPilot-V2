@@ -124,12 +124,10 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
 
-<<<<<<< HEAD
       // Refresh plan from /clients + check access
-=======
+
      
-       // Refresh plan from /clients + check access
->>>>>>> f2bc4a4 (fix: allow google signin popup)
+   
       try {
         const cs = await getDoc(doc(db, "clients", resolvedClientId));
 
