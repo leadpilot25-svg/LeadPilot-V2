@@ -107,7 +107,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       } catch (e) { console.warn("uid lookup:", e); }
 
-      // ── Step 2: /users by email ──────────────────────────────────────────
+      // ── Step 2: /users by email — only trust if clientId is set ────────────
       const placeholderDocIds: string[] = [];
       if (!resolvedRole) {
         try {
@@ -117,15 +117,18 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (!snaps.empty) {
             snaps.docs.forEach(d => { if (d.id !== realUID) placeholderDocIds.push(d.id); });
             const d = snaps.docs[0].data();
-            resolvedRole     = d.role === "admin" ? "client" : d.role;
-            resolvedClientId = d.clientId || null;
-            resolvedPlan     = d.plan || "single";
+            // Only trust this doc if clientId is actually set
+            if (d.clientId) {
+              resolvedRole     = d.role === "admin" ? "client" : d.role;
+              resolvedClientId = d.clientId;
+              resolvedPlan     = d.plan || "single";
+            }
           }
         } catch (e) { console.warn("email query:", e); }
       }
 
       // ── Step 3: /clients by ownerEmail ───────────────────────────────────
-      if (!resolvedRole) {
+      if (!resolvedClientId) {
         try {
           const snaps = await getDocs(
             query(collection(db, "clients"), where("ownerEmail", "==", email))
@@ -139,7 +142,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       // ── Step 4: /clients by email ────────────────────────────────────────
-      if (!resolvedRole) {
+      if (!resolvedClientId) {
         try {
           const snaps = await getDocs(
             query(collection(db, "clients"), where("email", "==", email))
@@ -152,6 +155,9 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         } catch (e) { console.warn("client email lookup:", e); }
       }
+
+      // ── If we found a clientId but still no role, default to client ────────
+      if (resolvedClientId && !resolvedRole) resolvedRole = "client";
 
       // ── Not registered ───────────────────────────────────────────────────
       if (!resolvedRole || !resolvedClientId) {
