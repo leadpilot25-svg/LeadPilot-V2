@@ -4,7 +4,7 @@ import { db } from "../lib/firebase";
 import { useFirebase } from "../contexts/FirebaseProvider";
 import Modal from "./Modal";
 import { syncToSheets } from "../lib/sheets";
-import { User, Phone, Home, DollarSign, Calendar, MapPin, FileText, UserCheck, Send } from "lucide-react";
+import { User, Phone, Mail, Home, DollarSign, Calendar, MapPin, FileText, UserCheck, Send } from "lucide-react";
 
 interface AddLeadModalProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ export default function AddLeadModal({ isOpen, onClose }: AddLeadModalProps) {
   const [agents, setAgents]      = useState<Agent[]>([]);
   const [loading, setLoading]    = useState(false);
   const blank = {
-    name: "", phone: "", project: "", budget: "",
+    name: "", phone: "", email: "", project: "", budget: "",
     location: "", notes: "",
     followUpDate: new Date().toISOString().split("T")[0],
     assignedTo: "",
@@ -45,14 +45,15 @@ export default function AddLeadModal({ isOpen, onClose }: AddLeadModalProps) {
     if (!user || !clientId) return;
     setLoading(true);
     try {
-      const parts     = form.name.trim().split(" ");
-      const firstName = parts[0] || "New";
-      const lastName  = parts.slice(1).join(" ") || "";
+      const parts      = form.name.trim().split(" ");
+      const firstName  = parts[0] || "New";
+      const lastName   = parts.slice(1).join(" ") || "";
       const assignedTo = form.assignedTo || (role === "agent" ? user.uid : "");
 
       const docRef = await addDoc(collection(db, "leads"), {
         firstName, lastName,
         phone:        form.phone,
+        email:        form.email || "",
         project:      form.project || "Not specified",
         propertyType: form.project || "Not specified",
         budget:       form.budget || "",
@@ -69,18 +70,18 @@ export default function AddLeadModal({ isOpen, onClose }: AddLeadModalProps) {
         createdAt:    serverTimestamp(),
       });
 
-      // Sync to Google Sheets
       await syncToSheets({
-        id:          docRef.id,
-        firstName,   lastName,
-        phone:       form.phone,
-        project:     form.project,
-        budget:      form.budget,
-        location:    form.location,
-        notes:       form.notes,
+        id:           docRef.id,
+        firstName,    lastName,
+        phone:        form.phone,
+        email:        form.email,
+        project:      form.project,
+        budget:       form.budget,
+        location:     form.location,
+        notes:        form.notes,
         followUpDate: form.followUpDate,
-        source:      "Manual",
-        status:      "new",
+        source:       "Manual",
+        status:       "new",
         clientId,
         assignedTo,
       });
@@ -100,6 +101,7 @@ export default function AddLeadModal({ isOpen, onClose }: AddLeadModalProps) {
       <form onSubmit={submit} className="space-y-3 pb-8">
         <Field label="Full Name *"         icon={User}       placeholder="John Smith"       value={form.name}         onChange={set("name")}        required />
         <Field label="Phone *"             icon={Phone}      placeholder="+91 98765 43210"  value={form.phone}        onChange={set("phone")}       required type="tel" />
+        <Field label="Email (optional)"    icon={Mail}       placeholder="john@example.com" value={form.email}        onChange={set("email")}       type="email" />
         <Field label="Project (optional)"  icon={Home}       placeholder="Horizon Heights"  value={form.project}      onChange={set("project")} />
         <Field label="Budget (optional)"   icon={DollarSign} placeholder="1.2 Cr"           value={form.budget}       onChange={set("budget")} />
         <Field label="Location (optional)" icon={MapPin}     placeholder="City / Area"      value={form.location}     onChange={set("location")} />
