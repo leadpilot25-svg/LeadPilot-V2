@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useFirebase } from "../contexts/FirebaseProvider";
-import { ArrowLeft, Phone, MessageCircle, Mail, Trash2, ChevronDown, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Phone, MessageCircle, Mail, Trash2, ChevronDown, CheckCircle2, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import Modal from "../components/Modal";
 
@@ -44,6 +44,7 @@ export default function LeadDetails() {
   const [callModal, setCallModal] = useState(false);
   const [note, setNote]       = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [savingDate, setSavingDate] = useState(false);  // ← new
 
   const [callNote,       setCallNote]       = useState("");
   const [callStatus,     setCallStatus]     = useState("contacted");
@@ -84,6 +85,35 @@ export default function LeadDetails() {
     await update({ assignedTo: agentUid });
   };
 
+  // ── Manual follow-up date change — saves to Firestore + Sheets ───────────
+  const updateFollowUpDate = async (newDate: string) => {
+    if (!lead || !id) return;
+    setSavingDate(true);
+    try {
+      await update({ followUpDate: newDate });
+      await syncToSheets({
+        id,
+        firstName:    lead.firstName,
+        lastName:     lead.lastName || "",
+        phone:        lead.phone,
+        email:        lead.email || "",
+        project:      lead.propertyType || "",
+        budget:       lead.budget || "",
+        location:     lead.location || "",
+        source:       lead.source || "Manual",
+        status:       lead.status || "new",
+        notes:        lead.notes || "",
+        clientId:     clientId || lead.clientId || "",
+        followUpDate: newDate,
+      });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update follow-up date.");
+    } finally {
+      setSavingDate(false);
+    }
+  };
+
   const saveNote = async () => {
     if (!note.trim()) return;
     setSavingNote(true);
@@ -109,8 +139,8 @@ export default function LeadDetails() {
 
       const updates: any = {
         status:            callStatus,
-        propertyType:      callInterest || lead.propertyType || "",  // ✅ fixed
-        location:          callLocation || lead.location || "",       // ✅ fixed
+        propertyType:      callInterest || lead.propertyType || "",
+        location:          callLocation || lead.location || "",
         followUpDate:      callDate,
         followUpTime:      to24(callTime),
         followUpCompleted: false,
@@ -124,7 +154,7 @@ export default function LeadDetails() {
       await update(updates);
 
       await syncToSheets({
-        id:           id,
+        id,
         firstName:    lead.firstName,
         lastName:     lead.lastName || "",
         phone:        lead.phone,
@@ -265,14 +295,25 @@ export default function LeadDetails() {
         </div>
       )}
 
-      {/* Follow-up date */}
+      {/* ── Follow-up Date — manual edit ─────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
-        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider block mb-3">
-          Follow-up Date
+        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+          <Calendar size={12} /> Follow-up Date
+          {savingDate && <span className="text-emerald-400 font-normal normal-case ml-1">Saving...</span>}
         </label>
-        <input type="date" value={lead.followUpDate || ""}
-          onChange={e => update({ followUpDate: e.target.value })}
-          className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 outline-none border border-gray-100 focus:border-emerald-400" />
+        <input
+          type="date"
+          value={lead.followUpDate || ""}
+          onChange={e => updateFollowUpDate(e.target.value)}
+          className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 outline-none border border-gray-100 focus:border-emerald-400 transition-colors"
+        />
+        {lead.followUpDate && (
+          <p className={`text-xs mt-2 font-medium ${isOverdue ? "text-red-400" : "text-gray-400"}`}>
+            {isOverdue
+              ? "⚠️ Overdue — please reschedule"
+              : `📅 ${format(new Date(lead.followUpDate + "T00:00:00"), "EEEE, dd MMM yyyy")}`}
+          </p>
+        )}
       </div>
 
       {/* Notes */}
