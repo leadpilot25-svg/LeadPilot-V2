@@ -2,11 +2,10 @@ import { useFirebase } from "../contexts/FirebaseProvider";
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, getDocs, doc, writeBatch, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { Search, Mail, Trash2, ChevronRight, FileSpreadsheet, X, CheckCircle2, AlertTriangle } from "lucide-react";
-
-
+import { Search, Trash2, ChevronRight, FileSpreadsheet, X, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
+import LeadActionButtons from "../components/LeadActionButtons";
 
 export default function LeadsList() {
   const { user, role, clientId } = useFirebase();
@@ -19,12 +18,10 @@ export default function LeadsList() {
   const [search, setSearch]     = useState("");
   const [agentFilter, setAgentFilter] = useState("all");
 
-  // bulk
   const [bulkMode, setBulkMode]     = useState(false);
   const [selected, setSelected]     = useState<string[]>([]);
   const [bulkAgent, setBulkAgent]   = useState("");
 
-  // csv
   const [csvRows, setCsvRows]       = useState<any[]>([]);
   const [csvOpen, setCsvOpen]       = useState(false);
   const [csvAgent, setCsvAgent]     = useState("");
@@ -41,12 +38,12 @@ export default function LeadsList() {
       let data = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       const today = new Date().toISOString().split("T")[0];
-      if (filterType === "today")   data = data.filter(l => l.followUpDate === today);
-      if (filterType === "missed")  data = data.filter(l => l.followUpDate < today && l.status !== "closed" && l.status !== "inactive" && !l.followUpCompleted);
-      if (filterType === "closed")  data = data.filter(l => l.status === "closed");
+      if (filterType === "today")    data = data.filter(l => l.followUpDate === today);
+      if (filterType === "missed")   data = data.filter(l => l.followUpDate < today && l.status !== "closed" && l.status !== "inactive" && !l.followUpCompleted);
+      if (filterType === "closed")   data = data.filter(l => l.status === "closed");
       if (filterType === "meetings") data = data.filter(l => ["site_visit","meeting"].includes(l.status) && l.followUpDate === today);
-      if (statusFilter === "open")  data = data.filter(l => l.status !== "closed" && l.status !== "inactive");
-      else if (statusFilter)        data = data.filter(l => l.status === statusFilter);
+      if (statusFilter === "open")   data = data.filter(l => l.status !== "closed" && l.status !== "inactive");
+      else if (statusFilter)         data = data.filter(l => l.status === statusFilter);
       setLeads(data);
     });
 
@@ -58,7 +55,6 @@ export default function LeadsList() {
     return unsub;
   }, [user, role, clientId, filterType, statusFilter]);
 
-  // CSV parse
   const handleCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -106,7 +102,7 @@ export default function LeadsList() {
       await batch.commit();
       alert(`✅ Imported ${n} leads!`);
       setCsvOpen(false); setCsvRows([]); setCsvAgent("");
-    } catch (err) { alert("Import failed."); }
+    } catch { alert("Import failed."); }
     finally { setImporting(false); }
   };
 
@@ -149,7 +145,6 @@ export default function LeadsList() {
             <FileSpreadsheet size={18} />
             <input type="file" accept=".csv" onChange={handleCSV} className="hidden" />
           </label>
-         
         </div>
       </div>
 
@@ -160,7 +155,6 @@ export default function LeadsList() {
           <input type="text" placeholder="Search name or phone..." value={search} onChange={e => setSearch(e.target.value)}
             className="w-full bg-white border border-gray-100 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-emerald-400 shadow-sm transition-colors" />
         </div>
-
         {role === "client" && (
           <div className="flex items-center gap-2">
             <select value={agentFilter} onChange={e => setAgentFilter(e.target.value)}
@@ -199,38 +193,69 @@ export default function LeadsList() {
 
       {/* Lead list */}
       <div className="space-y-2">
-        {filtered.map(l => (
-          <div key={l.id} className="relative">
-            {bulkMode && (
-              <input type="checkbox" checked={selected.includes(l.id)}
-                onChange={() => setSelected(p => p.includes(l.id) ? p.filter(x => x !== l.id) : [...p, l.id])}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-4 h-4 accent-emerald-500" />
-            )}
-            <Link to={`/leads/${l.id}`} className="block">
-              <div className={`bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 hover:border-gray-200 transition-colors ${bulkMode ? "pl-10" : ""}`}>
-                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center font-semibold text-gray-500 shrink-0">
-                  {(l.firstName||"?")[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm truncate">{l.firstName} {l.lastName}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColors[l.status] || "bg-gray-100 text-gray-500"}`}>
-                      {l.status === "new" ? "New" : (l.status||"").replace(/_/g," ")}
-                    </span>
-                    {l.project && l.project !== "Not specified" && (
-                      <span className="text-[10px] text-gray-400 truncate">{l.project}</span>
+        {filtered.map(l => {
+          // Build lead object with correct fields for WhatsApp/Email
+          const leadForActions = {
+            id:               l.id,
+            name:             `${l.firstName || ""} ${l.lastName || ""}`.trim(),
+            phone:            l.phone || "",
+            email:            l.email || "",
+            propertyInterest: l.project || l.propertyType || "",
+            budget:           l.budget || "",
+            agentName:        "Treen Foods",
+          };
+
+          return (
+            <div key={l.id} className="relative">
+              {bulkMode && (
+                <input type="checkbox" checked={selected.includes(l.id)}
+                  onChange={() => setSelected(p => p.includes(l.id) ? p.filter(x => x !== l.id) : [...p, l.id])}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-4 h-4 accent-emerald-500" />
+              )}
+
+              {/* Card — NOT a link, use a separate Link for navigation */}
+              <div className={`bg-white border border-gray-100 rounded-2xl p-4 hover:border-gray-200 transition-colors ${bulkMode ? "pl-10" : ""}`}>
+                <div className="flex items-center gap-3">
+                  {/* Avatar */}
+                  <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center font-semibold text-gray-500 shrink-0">
+                    {(l.firstName || "?")[0].toUpperCase()}
+                  </div>
+
+                  {/* Name + status — tapping this navigates */}
+                  <Link to={`/leads/${l.id}`} className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{l.firstName} {l.lastName}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColors[l.status] || "bg-gray-100 text-gray-500"}`}>
+                        {l.status === "new" ? "New" : (l.status || "").replace(/_/g, " ")}
+                      </span>
+                      {l.project && l.project !== "Not specified" && (
+                        <span className="text-[10px] text-gray-400 truncate">{l.project}</span>
+                      )}
+                    </div>
+                  </Link>
+
+                  {/* Delete + chevron */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {role === "client" && (
+                      <button onClick={e => deleteLead(e, l.id)} className="p-1.5 text-gray-300 hover:text-red-500">
+                        <Trash2 size={14} />
+                      </button>
                     )}
+                    <Link to={`/leads/${l.id}`}>
+                      <ChevronRight size={16} className="text-gray-200" />
+                    </Link>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  {l.email && <a href={`mailto:${l.email}`} onClick={e => e.stopPropagation()} className="p-1.5 text-gray-300 hover:text-emerald-500"><Mail size={14} /></a>}
-                  {role === "client" && <button onClick={e => deleteLead(e, l.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>}
-                  <ChevronRight size={16} className="text-gray-200" />
+
+                {/* WhatsApp + Email buttons — outside the Link, no nesting issue */}
+                <div className="mt-3 pt-3 border-t border-gray-50">
+                  <LeadActionButtons lead={leadForActions} />
                 </div>
               </div>
-            </Link>
-          </div>
-        ))}
+            </div>
+          );
+        })}
+
         {filtered.length === 0 && (
           <div className="text-center py-16 bg-white border border-dashed border-gray-200 rounded-2xl">
             <p className="text-sm text-gray-400">No leads found</p>
@@ -246,7 +271,6 @@ export default function LeadsList() {
               <h3 className="font-bold text-gray-900">Import CSV</h3>
               <button onClick={() => setCsvOpen(false)}><X size={18} className="text-gray-400" /></button>
             </div>
-
             {role === "client" && (
               <div className="mb-4">
                 <label className="text-xs text-gray-500 font-medium block mb-1">Assign all leads to</label>
@@ -257,7 +281,6 @@ export default function LeadsList() {
                 </select>
               </div>
             )}
-
             <div className="space-y-2 max-h-48 overflow-y-auto mb-4 border border-gray-100 rounded-xl p-2">
               {csvRows.map((r, i) => (
                 <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg p-2">
@@ -265,13 +288,10 @@ export default function LeadsList() {
                     <p className="font-medium text-gray-800">{r.name || "No name"}</p>
                     <p className="text-gray-400">{r.phone || "No phone"}</p>
                   </div>
-                  {r.valid
-                    ? <CheckCircle2 size={14} className="text-emerald-500" />
-                    : <AlertTriangle size={14} className="text-red-400" />}
+                  {r.valid ? <CheckCircle2 size={14} className="text-emerald-500" /> : <AlertTriangle size={14} className="text-red-400" />}
                 </div>
               ))}
             </div>
-
             <div className="flex gap-2">
               <button onClick={() => setCsvOpen(false)} className="flex-1 bg-gray-100 text-gray-600 rounded-xl py-3 text-sm font-medium">Cancel</button>
               <button onClick={importCSV} disabled={importing || !csvRows.some(r => r.valid)}
